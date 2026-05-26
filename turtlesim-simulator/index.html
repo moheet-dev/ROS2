@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turtlesim Controller</title>
+    <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0f12;
+            --panel: #13171e;
+            --border: #1e2530;
+            --accent: #00e5ff;
+            --accent-dim: #00b8cc;
+            --danger: #ff3d57;
+            --warn: #ffb300;
+            --text: #c8d6e5;
+            --text-dim: #4a5568;
+            --btn-bg: #1a2030;
+            --btn-hover: #1e2840;
+            --btn-active: #0d1520;
+            --glow: 0 0 12px rgba(0,229,255,0.25);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .panel {
+            position: relative;
+            z-index: 1;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: min(420px, 95vw);
+            overflow: hidden;
+            box-shadow: 0 0 0 1px rgba(0,229,255,0.05), 0 24px 64px rgba(0,0,0,0.6);
+        }
+
+        .panel::before {
+            content: '';
+            display: block;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .panel-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            flex-shrink: 0;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        .status-dot.connected {
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        h1 {
+            font-family: 'Teko', sans-serif;
+            font-weight: 600;
+            font-size: 22px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .sub {
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-left: auto;
+        }
+
+        .telemetry {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .tele-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 10px 14px;
+        }
+
+        .tele-label {
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .tele-value {
+            font-size: 20px;
+            color: var(--accent);
+            letter-spacing: 0.05em;
+            min-height: 28px;
+        }
+
+        .controls {
+            padding: 20px 24px 24px;
+        }
+
+        .controls-label {
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: var(--btn-bg);
+            border: 1px solid var(--border);
+            border-bottom: 3px solid rgba(0,0,0,0.4);
+            color: var(--text);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 14px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.08s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--text-dim);
+            transition: stroke 0.08s;
+        }
+
+        .btn:hover {
+            background: var(--btn-hover);
+            border-color: rgba(0,229,255,0.25);
+            color: var(--accent);
+        }
+        .btn:hover svg { stroke: var(--accent); }
+
+        .btn:active {
+            background: var(--btn-active);
+            border-bottom-width: 1px;
+            transform: translateY(2px);
+        }
+
+        .btn-forward { grid-column: 2; }
+        .btn-left    { grid-column: 1; }
+        .btn-right   { grid-column: 3; }
+
+        .btn-reset {
+            width: 100%;
+            border-color: rgba(255,179,0,0.2);
+            color: var(--warn);
+        }
+        .btn-reset svg { stroke: var(--warn); }
+        .btn-reset:hover {
+            background: rgba(255,179,0,0.06);
+            border-color: var(--warn);
+            color: var(--warn);
+            box-shadow: 0 0 12px rgba(255,179,0,0.12);
+        }
+
+        .panel-footer {
+            padding: 10px 24px;
+            border-top: 1px solid var(--border);
+            font-size: 10px;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn.active {
+            border-color: var(--accent);
+            background: rgba(0,229,255,0.07);
+            color: var(--accent);
+            box-shadow: var(--glow);
+        }
+        .btn.active svg { stroke: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <div class="panel-header">
+            <div class="status-dot" id="statusDot"></div>
+            <h1>Turtlesim</h1>
+            <span class="sub">SIM · v1</span>
+        </div>
+
+        <div class="telemetry">
+            <div class="tele-item">
+                <div class="tele-label">Position X</div>
+                <div class="tele-value" id="x">—</div>
+            </div>
+            <div class="tele-item">
+                <div class="tele-label">Position Y</div>
+                <div class="tele-value" id="y">—</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-label">Movement</div>
+            <div class="dpad">
+                <button class="btn btn-forward" onclick="moveForward()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    FWD
+                </button>
+                <button class="btn btn-left" onclick="turnLeft()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                    LEFT
+                </button>
+                <button class="btn btn-right" onclick="turnRight()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    RIGHT
+                </button>
+            </div>
+            <button class="btn btn-reset" onclick="reset()">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                RESET
+            </button>
+        </div>
+
+        <div class="panel-footer">
+            <span>ws://localhost:9090</span>
+            <span id="statusText">DISCONNECTED</span>
+        </div>
+    </div>
+
+    <script>
+        const ros = new ROSLIB.Ros({ url: "ws://localhost:9090" });
+
+        ros.on('connection', () => {
+            console.log("Connected");
+            document.getElementById('statusDot').classList.add('connected');
+            document.getElementById('statusText').textContent = 'CONNECTED';
+        });
+        ros.on('close', () => {
+            document.getElementById('statusDot').classList.remove('connected');
+            document.getElementById('statusText').textContent = 'DISCONNECTED';
+        });
+
+        const cmdVel = new ROSLIB.Topic({
+            ros: ros,
+            name: "/turtle1/cmd_vel",
+            messageType: "geometry_msgs/msg/Twist"
+        });
+        const poseListner = new ROSLIB.Topic({
+            ros: ros,
+            name: "/turtle1/pose",
+            messageType: "turtlesim/msg/Pose"
+        });
+        const resetService = new ROSLIB.Service({
+            ros: ros,
+            name: "/reset",
+            serviceType: "std_srvs/srv/Empty"
+        });
+
+        poseListner.subscribe((message) => {
+            document.getElementById('x').innerHTML = message.x;
+            document.getElementById('y').innerHTML = message.y;
+        });
+
+        function moveForward() {
+            cmdVel.publish(new ROSLIB.Message({
+                linear: { x: 1.0, y: 0, z: 0 },
+                angular: { x: 0, y: 0, z: 0 }
+            }));
+        }
+        function turnLeft() {
+            cmdVel.publish(new ROSLIB.Message({
+                linear: { x: 0, y: 0, z: 0 },
+                angular: { x: 0, y: 0, z: 1.5 }
+            }));
+        }
+        function turnRight() {
+            cmdVel.publish(new ROSLIB.Message({
+                linear: { x: 0, y: 0, z: 0 },
+                angular: { x: 0, y: 0, z: -1.5 }
+            }));
+        }
+        function reset() {
+            const req = new ROSLIB.ServiceRequest({});
+            resetService.callService(req, (res) => {
+                console.log("Reset success");
+            });
+        }
+    </script>
+</body>
+</html>
