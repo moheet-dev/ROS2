@@ -316,8 +316,9 @@
     </div>
 
     <script>
-        let interval = null;
         let activeBtn = null;
+        let linear = 0, angular = 0;
+        let pressed = [];
 
         const ros = new ROSLIB.Ros({ url: "ws://localhost:9090" });
 
@@ -358,28 +359,25 @@
             if (id) document.getElementById(id)?.classList.add('active');
         }
 
-        function sendCommand(linear, angular, btnId) {
-            clearInterval(interval);
+        function sendCommand(lin, ang, btnId) {
+            linear += lin;
+            angular += ang;
             setActiveBtn(btnId);
-            interval = setInterval(() => {
-                cmdVel.publish(new ROSLIB.Message({
-                    linear: { x: linear, y: 0, z: 0 },
-                    angular: { x: 0, y: 0, z: angular }
-                }));
-            }, 100);
         }
 
         function moveForward() { sendCommand(0.3, 0, 'btn-fwd'); }
         function turnLeft()    { sendCommand(0, 1.0, 'btn-left'); }
         function turnRight()   { sendCommand(0, -1.0, 'btn-right'); }
 
+        function keyForward() { sendCommand(0.3, 0, null) }
+        function keyBackward() { sendCommand(-0.3, 0, null) }
+        function keyLeftTurn() { sendCommand(0, 1.0, null) }
+        function keyRightTurn() { sendCommand(0, -1.0, null) }
+
         function stop() {
-            clearInterval(interval);
             setActiveBtn(null);
-            cmdVel.publish(new ROSLIB.Message({
-                linear: { x: 0, y: 0, z: 0 },
-                angular: { x: 0, y: 0, z: 0 }
-            }));
+            linear = 0;
+            angular = 0;
         }
 
         function reset() {
@@ -388,6 +386,83 @@
                 console.log("Reset success");
             });
         }
+
+        document.addEventListener("keydown", (e) => {
+            let ind = -1;
+            switch (e.key.toLowerCase()) {
+                case "w":
+                    ind = pressed.indexOf("w");
+                    console.log(ind);
+                    if(ind == -1) {
+                        pressed.push("w");
+                        keyForward();
+                    }
+                    break;
+                case "a":
+                    ind = pressed.indexOf("a");
+                    if(ind == -1) {
+                        pressed.push("a");
+                        keyLeftTurn();
+                    }
+                    break;
+                case "s":
+                    ind = pressed.indexOf("s");
+                    if(ind == -1) {
+                        pressed.push("s");
+                        keyBackward();
+                    }
+                    break;
+                case "d":
+                    ind = pressed.indexOf("d");
+                    if(ind == -1) {
+                        pressed.push("d");
+                        keyRightTurn();
+                    }
+                    break;
+            }
+        });
+
+        document.addEventListener("keyup", (e) => {
+            let ind = -1;
+            switch (e.key.toLowerCase()) {
+                case "w":
+                    keyBackward();
+                    ind = pressed.indexOf("w");
+                    console.log(ind);
+                    if(ind != -1) {
+                        pressed.splice(ind, 1);
+                    }
+                    break;
+                case "a":
+                    keyRightTurn();
+                    ind = pressed.indexOf("a");
+                    if(ind != -1) {
+                        pressed.splice(ind, 1);
+                    }
+                    break;
+                case "s":
+                    keyForward();
+                    ind = pressed.indexOf("s");
+                    if(ind != -1) {
+                        pressed.splice(ind, 1);
+                    }
+                    break;
+                case "d":
+                    keyLeftTurn();
+                    ind = pressed.indexOf("d");
+                    if(ind != -1) {
+                        pressed.splice(ind, 1);
+                    }
+                    break;
+            }
+        });
+
+        setInterval(() => {
+            cmdVel.publish(new ROSLIB.Message({
+                linear: {x:linear, y:0, z:0},
+                angular: {x:0, y:0, z:angular}
+            }));
+        }, 100);
     </script>
 </body>
 </html>
