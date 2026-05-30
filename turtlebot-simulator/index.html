@@ -3,316 +3,609 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turtlebot Controller</title>
+    <title>TurtleBot Control Station</title>
     <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0d0f12;
-            --panel: #13171e;
-            --border: #1e2530;
-            --accent: #00e5ff;
-            --accent-dim: #00b8cc;
-            --danger: #ff3d57;
-            --warn: #ffb300;
-            --text: #c8d6e5;
-            --text-dim: #4a5568;
-            --btn-bg: #1a2030;
-            --btn-hover: #1e2840;
-            --btn-active: #0d1520;
-            --glow: 0 0 12px rgba(0,229,255,0.25);
+            --bg:        #f0ece4;
+            --surface:   #e8e2d8;
+            --panel:     #faf8f4;
+            --border:    #ccc5b5;
+            --border-dk: #b0a898;
+            --ink:       #1a1814;
+            --ink-mid:   #4a4640;
+            --ink-dim:   #8a8278;
+            --accent:    #c8390a;
+            --accent-2:  #2b5c8a;
+            --success:   #2a7a3b;
+            --gold:      #a07820;
+            --shadow:    0 2px 24px rgba(26,24,20,0.10), 0 1px 4px rgba(26,24,20,0.06);
+            --shadow-sm: 0 1px 6px rgba(26,24,20,0.08);
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
+        html, body {
+            height: 100%;
             background: var(--bg);
-            color: var(--text);
-            font-family: 'Share Tech Mono', monospace;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            color: var(--ink);
+            font-family: 'DM Mono', monospace;
             overflow: hidden;
         }
 
-        /* Subtle grid background */
-        body::before {
+        /* Subtle linen texture */
+        body::after {
             content: '';
             position: fixed;
             inset: 0;
-            background-image:
-                linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='none'/%3E%3Ccircle cx='1' cy='1' r='0.4' fill='rgba(0,0,0,0.04)'/%3E%3C/svg%3E");
             pointer-events: none;
             z-index: 0;
         }
 
-        .panel {
+        /* ── TOP BAR ── */
+        .topbar {
             position: relative;
-            z-index: 1;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            width: min(420px, 95vw);
-            overflow: hidden;
-            box-shadow: 0 0 0 1px rgba(0,229,255,0.05), 0 24px 64px rgba(0,0,0,0.6);
-        }
-
-        /* Top accent stripe */
-        .panel::before {
-            content: '';
-            display: block;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-        }
-
-        .panel-header {
-            padding: 20px 24px 16px;
-            border-bottom: 1px solid var(--border);
+            z-index: 10;
+            height: 52px;
+            background: var(--ink);
             display: flex;
             align-items: center;
-            gap: 12px;
+            padding: 0 28px;
+            gap: 0;
+            border-bottom: 2px solid var(--accent);
         }
 
-        .status-dot {
+        .topbar-logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 17px;
+            font-weight: 600;
+            color: #f0ece4;
+            letter-spacing: 0.04em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .topbar-logo::before {
+            content: '';
+            display: block;
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--text-dim);
-            flex-shrink: 0;
-            transition: background 0.3s, box-shadow 0.3s;
-        }
-        .status-dot.connected {
             background: var(--accent);
             box-shadow: 0 0 8px var(--accent);
-            animation: pulse 2s ease-in-out infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .topbar-logo.connected::before {
+            background: #4caf6e;
+            box-shadow: 0 0 8px #4caf6e;
+            animation: blink 2.5s ease-in-out infinite;
         }
 
-        h1 {
-            font-family: 'Teko', sans-serif;
-            font-weight: 600;
-            font-size: 22px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--accent);
-            line-height: 1;
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        .topbar-sep {
+            width: 1px;
+            height: 20px;
+            background: #3a3632;
+            margin: 0 20px;
         }
 
-        .sub {
+        .topbar-meta {
             font-size: 10px;
-            letter-spacing: 0.2em;
-            color: var(--text-dim);
+            letter-spacing: 0.18em;
+            color: #6a6460;
             text-transform: uppercase;
+        }
+
+        .topbar-status {
             margin-left: auto;
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #4a4440;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .topbar-status span#statusText {
+            color: var(--accent);
+        }
+        .topbar-status.connected span#statusText {
+            color: #4caf6e;
+        }
+
+        /* ── MAIN LAYOUT ── */
+        .workspace {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            height: calc(100vh - 52px);
+            gap: 0;
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .section {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 9px;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
         }
 
         /* Telemetry */
-        .telemetry {
-            padding: 16px 24px;
-            border-bottom: 1px solid var(--border);
+        .tele-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
         }
 
-        .tele-item {
-            background: var(--bg);
+        .tele-cell {
+            background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 3px;
-            padding: 10px 14px;
+            padding: 10px 12px;
+            position: relative;
         }
 
-        .tele-label {
-            font-size: 10px;
+        .tele-cell::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: var(--accent-2);
+            opacity: 0.5;
+        }
+
+        .tele-key {
+            font-size: 9px;
             letter-spacing: 0.2em;
-            color: var(--text-dim);
             text-transform: uppercase;
-            margin-bottom: 4px;
+            color: var(--ink-dim);
+            margin-bottom: 6px;
         }
 
-        .tele-value {
-            font-size: 20px;
-            color: var(--accent);
-            letter-spacing: 0.05em;
-            min-height: 28px;
+        .tele-val {
+            font-size: 22px;
+            font-weight: 500;
+            color: var(--ink);
+            letter-spacing: 0.02em;
+            font-variant-numeric: tabular-nums;
         }
 
-        /* Controls */
-        .controls {
-            padding: 20px 24px 24px;
-        }
-
-        .controls-label {
-            font-size: 10px;
-            letter-spacing: 0.2em;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-bottom: 14px;
-        }
-
-        .dpad {
+        /* D-Pad */
+        .dpad-wrap {
             display: grid;
+            grid-template-areas:
+                ". fwd ."
+                "lft . rgt";
             grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: auto auto;
             gap: 6px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .btn {
-            background: var(--btn-bg);
-            border: 1px solid var(--border);
-            border-bottom: 3px solid rgba(0,0,0,0.4);
-            color: var(--text);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px;
-            letter-spacing: 0.15em;
+            background: var(--surface);
+            border: 1px solid var(--border-dk);
+            border-bottom: 3px solid var(--border-dk);
+            color: var(--ink-mid);
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.18em;
             text-transform: uppercase;
-            padding: 14px 10px;
-            border-radius: 3px;
+            padding: 13px 8px 11px;
             cursor: pointer;
-            transition: all 0.08s ease;
+            transition: background 0.07s, border-color 0.07s, color 0.07s, transform 0.07s, box-shadow 0.07s;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            position: relative;
         }
 
         .btn svg {
-            width: 18px;
-            height: 18px;
-            stroke: var(--text-dim);
-            transition: stroke 0.08s;
+            width: 16px;
+            height: 16px;
+            stroke: var(--ink-dim);
+            transition: stroke 0.07s;
         }
 
         .btn:hover {
-            background: var(--btn-hover);
-            border-color: rgba(0,229,255,0.25);
-            color: var(--accent);
+            background: var(--panel);
+            border-color: var(--accent-2);
+            color: var(--accent-2);
+            box-shadow: var(--shadow-sm);
         }
-        .btn:hover svg { stroke: var(--accent); }
+        .btn:hover svg { stroke: var(--accent-2); }
 
         .btn:active {
-            background: var(--btn-active);
             border-bottom-width: 1px;
             transform: translateY(2px);
         }
 
-        /* Forward spans full width in col 2 */
-        .btn-forward { grid-column: 2; }
-        .btn-left    { grid-column: 1; }
-        .btn-right   { grid-column: 3; }
+        .btn.active {
+            background: #ebf2fa;
+            border-color: var(--accent-2);
+            color: var(--accent-2);
+            box-shadow: inset 0 0 0 1px rgba(43,92,138,0.15);
+        }
+        .btn.active svg { stroke: var(--accent-2); }
 
-        .row-actions {
+        .btn-fwd { grid-area: fwd; }
+        .btn-lft { grid-area: lft; }
+        .btn-rgt { grid-area: rgt; }
+
+        .btn-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 6px;
         }
 
         .btn-stop {
-            border-color: rgba(255,61,87,0.3);
-            color: var(--danger);
+            color: var(--accent);
+            border-color: rgba(200,57,10,0.35);
         }
-        .btn-stop svg { stroke: var(--danger); }
+        .btn-stop svg { stroke: var(--accent); }
         .btn-stop:hover {
-            background: rgba(255,61,87,0.08);
-            border-color: var(--danger);
-            color: var(--danger);
-            box-shadow: 0 0 12px rgba(255,61,87,0.15);
+            background: #fdf0ec;
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 0 1px rgba(200,57,10,0.12);
         }
 
         .btn-reset {
-            border-color: rgba(255,179,0,0.2);
-            color: var(--warn);
+            color: var(--gold);
+            border-color: rgba(160,120,32,0.3);
         }
-        .btn-reset svg { stroke: var(--warn); }
+        .btn-reset svg { stroke: var(--gold); }
         .btn-reset:hover {
-            background: rgba(255,179,0,0.06);
-            border-color: var(--warn);
-            color: var(--warn);
-            box-shadow: 0 0 12px rgba(255,179,0,0.12);
+            background: #fdf8ec;
+            border-color: var(--gold);
+            color: var(--gold);
+            box-shadow: 0 0 0 1px rgba(160,120,32,0.1);
         }
 
-        /* Footer */
-        .panel-footer {
-            padding: 10px 24px;
+        /* Keyboard hint */
+        .kbd-hint {
+            padding: 16px 24px;
+            background: var(--surface);
             border-top: 1px solid var(--border);
-            font-size: 10px;
-            color: var(--text-dim);
-            letter-spacing: 0.1em;
-            display: flex;
-            justify-content: space-between;
+            margin-top: auto;
         }
 
-        /* Active state for direction buttons during movement */
-        .btn.active {
-            border-color: var(--accent);
-            background: rgba(0,229,255,0.07);
-            color: var(--accent);
-            box-shadow: var(--glow);
+        .kbd-title {
+            font-size: 9px;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            margin-bottom: 10px;
         }
-        .btn.active svg { stroke: var(--accent); }
+
+        .kbd-row {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+
+        kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--panel);
+            border: 1px solid var(--border-dk);
+            border-bottom: 2px solid var(--border-dk);
+            border-radius: 3px;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            color: var(--ink-mid);
+            box-shadow: var(--shadow-sm);
+        }
+
+        kbd.active-key {
+            background: #ebf2fa;
+            border-color: var(--accent-2);
+            color: var(--accent-2);
+        }
+
+        /* ── CAMERA PANE ── */
+        .camera-pane {
+            display: flex;
+            flex-direction: column;
+            background: #111010;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .camera-header {
+            background: rgba(10,8,6,0.9);
+            border-bottom: 1px solid #2a2520;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2;
+        }
+
+        .cam-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #2a2520;
+        }
+        .cam-dot.live {
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        .cam-label {
+            font-size: 9px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: #5a5450;
+        }
+
+        .cam-topic {
+            margin-left: auto;
+            font-size: 9px;
+            letter-spacing: 0.12em;
+            color: #3a3430;
+        }
+
+        .camera-viewport {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .camera-viewport img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Scan line overlay */
+        .camera-viewport::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 3px,
+                rgba(0,0,0,0.04) 3px,
+                rgba(0,0,0,0.04) 4px
+            );
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        /* Corner brackets */
+        .bracket {
+            position: absolute;
+            width: 28px; height: 28px;
+            z-index: 4;
+            opacity: 0.5;
+        }
+        .bracket.tl { top: 18px; left: 18px; border-top: 2px solid #f0ece4; border-left: 2px solid #f0ece4; }
+        .bracket.tr { top: 18px; right: 18px; border-top: 2px solid #f0ece4; border-right: 2px solid #f0ece4; }
+        .bracket.bl { bottom: 18px; left: 18px; border-bottom: 2px solid #f0ece4; border-left: 2px solid #f0ece4; }
+        .bracket.br { bottom: 18px; right: 18px; border-bottom: 2px solid #f0ece4; border-right: 2px solid #f0ece4; }
+
+        /* No signal placeholder */
+        .no-signal {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: #0a0806;
+            z-index: 2;
+        }
+
+        .no-signal-icon {
+            opacity: 0.18;
+        }
+
+        .no-signal-text {
+            font-size: 10px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: #4a4440;
+        }
+
+        /* HUD overlay bottom bar */
+        .camera-hud {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: 10px 20px;
+            background: linear-gradient(transparent, rgba(5,4,3,0.75));
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            z-index: 4;
+        }
+
+        .hud-item {
+            font-size: 9px;
+            letter-spacing: 0.18em;
+            color: rgba(240,236,228,0.45);
+            text-transform: uppercase;
+            line-height: 1.6;
+        }
+
+        /* Animations */
+        .panel, .sidebar, .camera-pane {
+            animation: fadeUp 0.4s ease both;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
-    <div class="panel">
-        <div class="panel-header">
-            <div class="status-dot" id="statusDot"></div>
-            <h1>Turtlebot</h1>
-            <span class="sub">NAV · v2</span>
-        </div>
 
-        <div class="telemetry">
-            <div class="tele-item">
-                <div class="tele-label">Position X</div>
-                <div class="tele-value" id="x">—</div>
-            </div>
-            <div class="tele-item">
-                <div class="tele-label">Position Y</div>
-                <div class="tele-value" id="y">—</div>
-            </div>
-        </div>
-
-        <div class="controls">
-            <div class="controls-label">Movement</div>
-            <div class="dpad">
-                <button class="btn btn-forward" onclick="moveForward()" id="btn-fwd">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-                    FWD
-                </button>
-                <button class="btn btn-left" onclick="turnLeft()" id="btn-left">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-                    LEFT
-                </button>
-                <button class="btn btn-right" onclick="turnRight()" id="btn-right">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    RIGHT
-                </button>
-            </div>
-            <div class="row-actions">
-                <button class="btn btn-stop" onclick="stop()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-                    STOP
-                </button>
-                <button class="btn btn-reset" onclick="reset()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                    RESET
-                </button>
-            </div>
-        </div>
-
-        <div class="panel-footer">
-            <span>ws://localhost:9090</span>
+    <!-- TOP BAR -->
+    <header class="topbar" id="topbar">
+        <div class="topbar-logo" id="topbarLogo">TurtleBot</div>
+        <div class="topbar-sep"></div>
+        <div class="topbar-meta">Control Station</div>
+        <div class="topbar-status" id="topbarStatus">
+            <span>ROS2 Bridge</span>
+            <span>·</span>
             <span id="statusText">DISCONNECTED</span>
         </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="workspace">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+
+            <!-- Telemetry -->
+            <div class="section">
+                <div class="section-title">Odometry</div>
+                <div class="tele-grid">
+                    <div class="tele-cell">
+                        <div class="tele-key">Pos X</div>
+                        <div class="tele-val" id="x">—</div>
+                    </div>
+                    <div class="tele-cell">
+                        <div class="tele-key">Pos Y</div>
+                        <div class="tele-val" id="y">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="section">
+                <div class="section-title">Movement</div>
+
+                <div class="dpad-wrap">
+                    <button class="btn btn-fwd" onclick="moveForward()" id="btn-fwd">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                        FWD
+                    </button>
+                    <button class="btn btn-lft" onclick="turnLeft()" id="btn-left">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                        LEFT
+                    </button>
+                    <button class="btn btn-rgt" onclick="turnRight()" id="btn-right">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        RIGHT
+                    </button>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-stop" onclick="stop()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                        STOP
+                    </button>
+                    <button class="btn btn-reset" onclick="reset()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        RESET
+                    </button>
+                </div>
+            </div>
+
+            <!-- Keyboard hint -->
+            <div class="kbd-hint">
+                <div class="kbd-title">Keyboard — WASD</div>
+                <div class="kbd-row"><kbd id="kbd-w">W</kbd></div>
+                <div class="kbd-row">
+                    <kbd id="kbd-a">A</kbd>
+                    <kbd id="kbd-s">S</kbd>
+                    <kbd id="kbd-d">D</kbd>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- CAMERA PANE -->
+        <main class="camera-pane">
+            <div class="camera-header">
+                <div class="cam-dot" id="camDot"></div>
+                <div class="cam-label">Camera Feed</div>
+                <div class="cam-topic">/camera/image_raw</div>
+            </div>
+
+            <div class="camera-viewport" id="cameraViewport">
+                <div class="no-signal" id="noSignal">
+                    <svg class="no-signal-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#f0ece4" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 8.5C4.5 5.5 8 4 12 4s7.5 1.5 10 4.5"/>
+                        <path d="M5 11.5C6.8 9.6 9.3 8.5 12 8.5s5.2 1.1 7 3"/>
+                        <path d="M8 14.5c1-1.1 2.4-1.8 4-1.8s3 .7 4 1.8"/>
+                        <circle cx="12" cy="18" r="1.5" fill="#f0ece4"/>
+                    </svg>
+                    <div class="no-signal-text">Awaiting stream</div>
+                </div>
+
+                <img
+                    src="http://localhost:8080/stream?topic=/camera/image_raw"
+                    alt="Camera feed"
+                    id="camFeed"
+                    style="display:none"
+                    onload="onCamLoad()"
+                    onerror="onCamError()"
+                />
+
+                <!-- Corners -->
+                <div class="bracket tl"></div>
+                <div class="bracket tr"></div>
+                <div class="bracket bl"></div>
+                <div class="bracket br"></div>
+
+                <!-- HUD -->
+                <div class="camera-hud">
+                    <div class="hud-item">
+                        ws://localhost:9090<br>
+                        <span id="hudStatus">DISCONNECTED</span>
+                    </div>
+                    <div class="hud-item" style="text-align:right" id="hudPos">
+                        X — &nbsp; Y —
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script>
@@ -320,37 +613,54 @@
         let linear = 0, angular = 0;
         let pressed = [];
 
+        // Camera stream handling
+        function onCamLoad() {
+            document.getElementById('noSignal').style.display = 'none';
+            document.getElementById('camFeed').style.display = 'block';
+            document.getElementById('camDot').classList.add('live');
+        }
+        function onCamError() {
+            document.getElementById('noSignal').style.display = 'flex';
+            document.getElementById('camFeed').style.display = 'none';
+            document.getElementById('camDot').classList.remove('live');
+            // Retry every 3s
+            setTimeout(() => {
+                const img = document.getElementById('camFeed');
+                img.src = 'http://localhost:8080/stream?topic=/camera/image_raw?' + Date.now();
+            }, 3000);
+        }
+
         const ros = new ROSLIB.Ros({ url: "ws://localhost:9090" });
 
         ros.on('connection', () => {
-            console.log("Connected");
-            document.getElementById('statusDot').classList.add('connected');
             document.getElementById('statusText').textContent = 'CONNECTED';
+            document.getElementById('topbarStatus').classList.add('connected');
+            document.getElementById('topbarLogo').classList.add('connected');
+            document.getElementById('hudStatus').textContent = 'CONNECTED';
         });
         ros.on('close', () => {
-            document.getElementById('statusDot').classList.remove('connected');
             document.getElementById('statusText').textContent = 'DISCONNECTED';
+            document.getElementById('topbarStatus').classList.remove('connected');
+            document.getElementById('topbarLogo').classList.remove('connected');
+            document.getElementById('hudStatus').textContent = 'DISCONNECTED';
         });
 
         const cmdVel = new ROSLIB.Topic({
-            ros: ros,
-            name: "/cmd_vel",
-            messageType: "geometry_msgs/msg/Twist"
+            ros, name: "/cmd_vel", messageType: "geometry_msgs/msg/Twist"
         });
-        const poseListner = new ROSLIB.Topic({
-            ros: ros,
-            name: "/odom",
-            messageType: "nav_msgs/msg/Odometry"
+        const poseListener = new ROSLIB.Topic({
+            ros, name: "/odom", messageType: "nav_msgs/msg/Odometry"
         });
         const resetService = new ROSLIB.Service({
-            ros: ros,
-            name: "/reset_world",
-            serviceType: "std_srvs/srv/Empty"
+            ros, name: "/reset_world", serviceType: "std_srvs/srv/Empty"
         });
 
-        poseListner.subscribe((message) => {
-            document.getElementById('x').innerHTML = message.pose.pose.position.x?.toFixed(2);
-            document.getElementById('y').innerHTML = message.pose.pose.position.y?.toFixed(2);
+        poseListener.subscribe((msg) => {
+            const x = msg.pose.pose.position.x?.toFixed(2);
+            const y = msg.pose.pose.position.y?.toFixed(2);
+            document.getElementById('x').textContent = x;
+            document.getElementById('y').textContent = y;
+            document.getElementById('hudPos').textContent = `X ${x}   Y ${y}`;
         });
 
         function setActiveBtn(id) {
@@ -365,102 +675,51 @@
             setActiveBtn(btnId);
         }
 
-        function moveForward() { sendCommand(0.3, 0, 'btn-fwd'); }
-        function turnLeft()    { sendCommand(0, 1.0, 'btn-left'); }
-        function turnRight()   { sendCommand(0, -1.0, 'btn-right'); }
-
-        function keyForward() { sendCommand(0.3, 0, null) }
-        function keyBackward() { sendCommand(-0.3, 0, null) }
-        function keyLeftTurn() { sendCommand(0, 1.0, null) }
-        function keyRightTurn() { sendCommand(0, -1.0, null) }
+        function moveForward() { sendCommand(0.3,   0,    'btn-fwd');   }
+        function turnLeft()    { sendCommand(0,      1.0,  'btn-left'); }
+        function turnRight()   { sendCommand(0,     -1.0,  'btn-right');}
+        function keyForward()  { sendCommand(0.3,   0,    null); }
+        function keyBackward() { sendCommand(-0.3,  0,    null); }
+        function keyLeftTurn() { sendCommand(0,     1.0,  null); }
+        function keyRightTurn(){ sendCommand(0,    -1.0,  null); }
 
         function stop() {
             setActiveBtn(null);
-            linear = 0;
-            angular = 0;
+            linear = 0; angular = 0;
         }
-
         function reset() {
-            const req = new ROSLIB.ServiceRequest({});
-            resetService.callService(req, (res) => {
-                console.log("Reset success");
-            });
+            resetService.callService(new ROSLIB.ServiceRequest({}), () => console.log("Reset"));
         }
 
+        // Keyboard
         document.addEventListener("keydown", (e) => {
-            let ind = -1;
-            switch (e.key.toLowerCase()) {
-                case "w":
-                    ind = pressed.indexOf("w");
-                    console.log(ind);
-                    if(ind == -1) {
-                        pressed.push("w");
-                        keyForward();
-                    }
-                    break;
-                case "a":
-                    ind = pressed.indexOf("a");
-                    if(ind == -1) {
-                        pressed.push("a");
-                        keyLeftTurn();
-                    }
-                    break;
-                case "s":
-                    ind = pressed.indexOf("s");
-                    if(ind == -1) {
-                        pressed.push("s");
-                        keyBackward();
-                    }
-                    break;
-                case "d":
-                    ind = pressed.indexOf("d");
-                    if(ind == -1) {
-                        pressed.push("d");
-                        keyRightTurn();
-                    }
-                    break;
-            }
+            const k = e.key.toLowerCase();
+            if (!['w','a','s','d'].includes(k)) return;
+            if (pressed.includes(k)) return;
+            pressed.push(k);
+            document.getElementById(`kbd-${k}`)?.classList.add('active-key');
+            if (k === 'w') keyForward();
+            if (k === 'a') keyLeftTurn();
+            if (k === 's') keyBackward();
+            if (k === 'd') keyRightTurn();
         });
 
         document.addEventListener("keyup", (e) => {
-            let ind = -1;
-            switch (e.key.toLowerCase()) {
-                case "w":
-                    keyBackward();
-                    ind = pressed.indexOf("w");
-                    console.log(ind);
-                    if(ind != -1) {
-                        pressed.splice(ind, 1);
-                    }
-                    break;
-                case "a":
-                    keyRightTurn();
-                    ind = pressed.indexOf("a");
-                    if(ind != -1) {
-                        pressed.splice(ind, 1);
-                    }
-                    break;
-                case "s":
-                    keyForward();
-                    ind = pressed.indexOf("s");
-                    if(ind != -1) {
-                        pressed.splice(ind, 1);
-                    }
-                    break;
-                case "d":
-                    keyLeftTurn();
-                    ind = pressed.indexOf("d");
-                    if(ind != -1) {
-                        pressed.splice(ind, 1);
-                    }
-                    break;
-            }
+            const k = e.key.toLowerCase();
+            if (!['w','a','s','d'].includes(k)) return;
+            const idx = pressed.indexOf(k);
+            if (idx !== -1) pressed.splice(idx, 1);
+            document.getElementById(`kbd-${k}`)?.classList.remove('active-key');
+            if (k === 'w') keyBackward();
+            if (k === 'a') keyRightTurn();
+            if (k === 's') keyForward();
+            if (k === 'd') keyLeftTurn();
         });
 
         setInterval(() => {
             cmdVel.publish(new ROSLIB.Message({
-                linear: {x:linear, y:0, z:0},
-                angular: {x:0, y:0, z:angular}
+                linear:  { x: linear,  y: 0, z: 0 },
+                angular: { x: 0,       y: 0, z: angular }
             }));
         }, 100);
     </script>
