@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TurtleBot Control Station</title>
+    <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:        #1a1f18;
+            --surface:   #222a1f;
+            --panel:     #1e2620;
+            --border:    #2e3a2a;
+            --border-dk: #3a4a34;
+            --ink:       #d8e8d0;
+            --ink-mid:   #94a88c;
+            --ink-dim:   #566050;
+            --accent:    #7abf5a;
+            --accent-2:  #4a9e6a;
+            --gold:      #c8a84a;
+            --green:     #5abf7a;
+            --shadow-sm: 0 1px 6px rgba(0,0,0,0.3);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: 'DM Mono', monospace; overflow: hidden; }
+
+        body::after {
+            content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.4' fill='rgba(255,255,255,0.02)'/%3E%3C/svg%3E");
+        }
+
+        /* ── TOPBAR ── */
+        .topbar {
+            position: relative; z-index: 10; height: 52px;
+            background: #111810; display: flex; align-items: center;
+            padding: 0 28px; border-bottom: 2px solid var(--accent);
+        }
+        .topbar-logo {
+            font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 600;
+            color: var(--ink); letter-spacing: 0.04em; display: flex; align-items: center; gap: 10px;
+        }
+        .topbar-logo::before {
+            content: ''; display: block; width: 8px; height: 8px; border-radius: 50%;
+            background: #566050; box-shadow: none;
+            transition: background 0.4s, box-shadow 0.4s;
+        }
+        .topbar-logo.connected::before { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: blink 2.5s ease-in-out infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .topbar-sep { width: 1px; height: 20px; background: #2a3226; margin: 0 20px; }
+        .topbar-meta { font-size: 10px; letter-spacing: 0.18em; color: #4a5a44; text-transform: uppercase; }
+        .topbar-status { margin-left: auto; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #4a5a44; display: flex; align-items: center; gap: 8px; }
+        .topbar-status #statusText { color: var(--ink-dim); transition: color 0.3s; }
+        .topbar-status.connected #statusText { color: var(--accent); }
+
+        /* ── LAYOUT ── */
+        .workspace { position: relative; z-index: 1; display: grid; grid-template-columns: 360px 1fr; height: calc(100vh - 52px); }
+
+        /* ── SIDEBAR ── */
+        .sidebar { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+
+        .section { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+        .section-title {
+            font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+            color: var(--ink-dim); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* Telemetry */
+        .tele-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .tele-cell { background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; position: relative; }
+        .tele-cell::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
+        .tele-key { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 5px; }
+        .tele-val { font-size: 20px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; min-height: 26px; }
+
+        .btn-reset {
+            background: var(--surface); border: 1px solid rgba(160,120,32,0.3); border-bottom: 3px solid rgba(160,120,32,0.3);
+            color: var(--gold); font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+            letter-spacing: 0.18em; text-transform: uppercase; padding: 11px 16px;
+            cursor: pointer; transition: all 0.07s ease; width: 100%;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            user-select: none;
+        }
+        .btn-reset svg { width: 14px; height: 14px; stroke: var(--gold); }
+        .btn-reset:hover { background: #fdf8ec; border-color: var(--gold); }
+        .btn-reset:active { border-bottom-width: 1px; transform: translateY(2px); }
+
+        /* ── GOTO SECTION ── */
+        .goto-form { display: flex; flex-direction: column; gap: 10px; }
+        .goto-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .input-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .input-label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+        .coord-input {
+            background: var(--surface); border: 1px solid var(--border-dk);
+            color: var(--ink); font-family: 'DM Mono', monospace; font-size: 14px;
+            padding: 8px 10px; width: 100%; outline: none;
+            transition: border-color 0.12s;
+            -moz-appearance: textfield;
+        }
+        .coord-input::-webkit-inner-spin-button, .coord-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .coord-input:focus { border-color: var(--accent); background: #1e2a1e; }
+
+        .btn-goto {
+            background: var(--accent-2); border: none; border-bottom: 3px solid rgba(0,0,0,0.3);
+            color: #e8f4e0; font-family: 'DM Mono', monospace; font-size: 10px;
+            letter-spacing: 0.2em; text-transform: uppercase; padding: 11px 16px;
+            cursor: pointer; transition: all 0.08s; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-goto:hover { background: #3a8a58; }
+        .btn-goto:active { border-bottom-width: 1px; transform: translateY(2px); }
+        .btn-goto:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+        .btn-goto svg { width: 14px; height: 14px; stroke: #e8f4e0; flex-shrink: 0; }
+
+        /* Status pill */
+        .goto-status {
+            font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+            padding: 5px 10px; border-radius: 2px; text-align: center; display: none;
+        }
+        .goto-status.pending { display: block; background: #1a2e20; color: var(--accent); border: 1px solid rgba(122,191,90,0.2); }
+        .goto-status.success { display: block; background: #172a1e; color: var(--green); border: 1px solid rgba(90,191,122,0.2); }
+        .goto-status.error   { display: block; background: #2a1a14; color: #e07a50; border: 1px solid rgba(200,100,60,0.2); }
+
+        /* Keyboard */
+        .kbd-hint { padding: 14px 22px; background: var(--surface); border-top: 1px solid var(--border); margin-top: auto; }
+        .kbd-title { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px; }
+        .kbd-row { display: flex; gap: 6px; justify-content: center; margin-bottom: 5px; }
+        kbd {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; background: var(--panel);
+            border: 1px solid var(--border-dk); border-bottom: 2px solid var(--border-dk);
+            border-radius: 3px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-mid);
+            transition: all 0.07s;
+        }
+        kbd.active-key { background: #ebf2fa; border-color: var(--accent-2); color: var(--accent-2); }
+
+        /* ── CAMERA ── */
+        .camera-pane { display: flex; flex-direction: column; background: #0e1210; overflow: hidden; }
+        .camera-header {
+            background: rgba(8,12,8,0.95); border-bottom: 1px solid #1e2a1a;
+            padding: 10px 20px; display: flex; align-items: center; gap: 12px; z-index: 2; flex-shrink: 0;
+        }
+        .cam-dot { width: 7px; height: 7px; border-radius: 50%; background: #2a3a24; transition: all 0.3s; }
+        .cam-dot.live { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: blink 2s ease-in-out infinite; }
+        .cam-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #3a5030; }
+        .cam-topic { margin-left: auto; font-size: 9px; letter-spacing: 0.12em; color: #2e4028; }
+        .camera-viewport { flex: 1; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .camera-viewport img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .camera-viewport::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+            background: repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+        }
+        .bracket { position: absolute; width: 28px; height: 28px; z-index: 4; opacity: 0.45; }
+        .bracket.tl { top: 18px; left: 18px; border-top: 2px solid #7abf5a; border-left: 2px solid #7abf5a; }
+        .bracket.tr { top: 18px; right: 18px; border-top: 2px solid #7abf5a; border-right: 2px solid #7abf5a; }
+        .bracket.bl { bottom: 18px; left: 18px; border-bottom: 2px solid #7abf5a; border-left: 2px solid #7abf5a; }
+        .bracket.br { bottom: 18px; right: 18px; border-bottom: 2px solid #7abf5a; border-right: 2px solid #7abf5a; }
+        .no-signal { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #0a0e08; z-index: 2; }
+        .no-signal-text { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: #2e4028; }
+        .camera-hud {
+            position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 20px; z-index: 4;
+            background: linear-gradient(transparent, rgba(4,8,4,0.82));
+            display: flex; align-items: flex-end; justify-content: space-between;
+        }
+        .hud-item { font-size: 9px; letter-spacing: 0.18em; color: rgba(160,200,140,0.4); text-transform: uppercase; line-height: 1.7; }
+
+        /* Fade-in */
+        .sidebar, .camera-pane { animation: fadeUp 0.35s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    </style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-logo" id="topbarLogo">TurtleBot</div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-meta">Control Station</div>
+    <div class="topbar-status" id="topbarStatus">
+        <span>ROS2 Bridge</span>
+        <span>·</span>
+        <span id="statusText">DISCONNECTED</span>
+    </div>
+</header>
+
+<div class="workspace">
+
+    <aside class="sidebar">
+
+        <!-- Odometry -->
+        <div class="section">
+            <div class="section-title">Odometry</div>
+            <div class="tele-grid">
+                <div class="tele-cell">
+                    <div class="tele-key">Pos X</div>
+                    <div class="tele-val" id="posX">—</div>
+                </div>
+                <div class="tele-cell">
+                    <div class="tele-key">Pos Y</div>
+                    <div class="tele-val" id="posY">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Go To Coordinate -->
+        <div class="section">
+            <div class="section-title">Go To Coordinate</div>
+            <div class="goto-form">
+                <div class="goto-row">
+                    <div class="input-wrap">
+                        <div class="input-label">Target X</div>
+                        <input class="coord-input" type="number" id="targetX" value="0" step="0.1" placeholder="0.0" />
+                    </div>
+                    <div class="input-wrap">
+                        <div class="input-label">Target Y</div>
+                        <input class="coord-input" type="number" id="targetY" value="0" step="0.1" placeholder="0.0" />
+                    </div>
+                </div>
+                <button class="btn-goto" id="btnGoto" onclick="sendGoto()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    Send to Position
+                </button>
+                <div class="goto-status" id="gotoStatus"></div>
+            </div>
+        </div>
+
+        <!-- Reset -->
+        <div class="section">
+            <div class="section-title">Actions</div>
+            <button class="btn-reset" onclick="resetWorld()">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Reset World
+            </button>
+        </div>
+
+    </aside>
+
+    <!-- Camera -->
+    <main class="camera-pane">
+        <div class="camera-header">
+            <div class="cam-dot" id="camDot"></div>
+            <div class="cam-label">Camera Feed</div>
+            <div class="cam-topic">/camera/image_raw</div>
+        </div>
+        <div class="camera-viewport">
+            <div class="no-signal" id="noSignal">
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7abf5a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.18">
+                    <path d="M2 8.5C4.5 5.5 8 4 12 4s7.5 1.5 10 4.5"/>
+                    <path d="M5 11.5C6.8 9.6 9.3 8.5 12 8.5s5.2 1.1 7 3"/>
+                    <path d="M8 14.5c1-1.1 2.4-1.8 4-1.8s3 .7 4 1.8"/>
+                    <circle cx="12" cy="18" r="1.5" fill="#7abf5a"/>
+                </svg>
+                <div class="no-signal-text">Awaiting stream</div>
+            </div>
+            <img src="http://localhost:8080/stream?topic=/camera/image_raw"
+                 id="camFeed" style="display:none"
+                 onload="onCamLoad()" onerror="onCamError()" alt="Camera feed" />
+            <div class="bracket tl"></div>
+            <div class="bracket tr"></div>
+            <div class="bracket bl"></div>
+            <div class="bracket br"></div>
+            <div class="camera-hud">
+                <div class="hud-item">ws://localhost:9090<br><span id="hudStatus">DISCONNECTED</span></div>
+                <div class="hud-item" id="hudPos" style="text-align:right">X —&nbsp;&nbsp;Y —</div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // ── Camera ──
+    function onCamLoad() {
+        document.getElementById('noSignal').style.display = 'none';
+        document.getElementById('camFeed').style.display = 'block';
+        document.getElementById('camDot').classList.add('live');
+    }
+    function onCamError() {
+        document.getElementById('noSignal').style.display = 'flex';
+        document.getElementById('camFeed').style.display = 'none';
+        document.getElementById('camDot').classList.remove('live');
+        setTimeout(() => {
+            document.getElementById('camFeed').src =
+                'http://localhost:8080/stream?topic=/camera/image_raw&_t=' + Date.now();
+        }, 3000);
+    }
+
+    // ── ROS ──
+    const ros = new ROSLIB.Ros({ url: "ws://localhost:9090" });
+    ros.on('connection', () => {
+        document.getElementById('statusText').textContent = 'CONNECTED';
+        document.getElementById('topbarStatus').classList.add('connected');
+        document.getElementById('topbarLogo').classList.add('connected');
+        document.getElementById('hudStatus').textContent = 'CONNECTED';
+    });
+    ros.on('close', () => {
+        document.getElementById('statusText').textContent = 'DISCONNECTED';
+        document.getElementById('topbarStatus').classList.remove('connected');
+        document.getElementById('topbarLogo').classList.remove('connected');
+        document.getElementById('hudStatus').textContent = 'DISCONNECTED';
+    });
+
+    const odomSub = new ROSLIB.Topic({ ros, name: "/odom", messageType: "nav_msgs/msg/Odometry" });
+    const resetService = new ROSLIB.Service({ ros, name: "/reset_world", serviceType: "std_srvs/srv/Empty" });
+    const moveService  = new ROSLIB.Service({ ros, name: "/move_service", serviceType: "turtlebot_interfaces/srv/MoveRobot" });
+
+    odomSub.subscribe((msg) => {
+        const x = msg.pose.pose.position.x?.toFixed(2);
+        const y = msg.pose.pose.position.y?.toFixed(2);
+        document.getElementById('posX').textContent = x;
+        document.getElementById('posY').textContent = y;
+        document.getElementById('hudPos').textContent = `X ${x}     Y ${y}`;
+    });
+
+    function resetWorld() { resetService.callService(new ROSLIB.ServiceRequest({}), () => console.log("Reset")); }
+
+    // ── Go To Coordinate ──
+    function setGotoStatus(type, text) {
+        const el = document.getElementById('gotoStatus');
+        el.className = 'goto-status ' + type;
+        el.textContent = text;
+    }
+
+    function sendGoto() {
+        const target_x = parseFloat(document.getElementById('targetX').value);
+        const target_y = parseFloat(document.getElementById('targetY').value);
+        if (isNaN(target_x) || isNaN(target_y)) {
+            setGotoStatus('error', 'Invalid coordinates');
+            return;
+        }
+        const btn = document.getElementById('btnGoto');
+        btn.disabled = true;
+        setGotoStatus('pending', `Navigating to (${target_x.toFixed(2)}, ${target_y.toFixed(2)})…`);
+
+        const req = new ROSLIB.ServiceRequest({ target_x, target_y });
+        moveService.callService(req, (res) => {
+            btn.disabled = false;
+            if (res.success) {
+                setGotoStatus('success', res.message || 'Reached target');
+            } else {
+                setGotoStatus('error', res.message || 'Failed');
+            }
+        }, (err) => {
+            btn.disabled = false;
+            setGotoStatus('error', 'Service error — check ROS');
+            console.error(err);
+        });
+    }
+
+
+</script>
+</body>
+</html>

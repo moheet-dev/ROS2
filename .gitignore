@@ -1,0 +1,72 @@
+```gitignore
+# ==========================
+# ROS2 Workspace Artifacts
+# ==========================
+build/
+install/
+log/
+
+# Colcon
+.colcon/
+
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Python virtual envs
+venv/
+.venv/
+env/
+
+# ==========================
+# C++ Build Files
+# ==========================
+*.o
+*.a
+*.so
+*.out
+*.exe
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# ==========================
+# IDE / Editor
+# ==========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==========================
+# OS Files
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# ROS Logs / Temp
+# ==========================
+*.log
+
+# ==========================
+# Testing
+# ==========================
+coverage/
+.pytest_cache/
+
+# ==========================
+# Ignore generated messages
+# (usually inside build/install)
+# ==========================
+*.egg-info/
+```
