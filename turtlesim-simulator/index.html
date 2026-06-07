@@ -315,8 +315,8 @@
         });
 
         poseListner.subscribe((message) => {
-            document.getElementById('x').innerHTML = message.x;
-            document.getElementById('y').innerHTML = message.y;
+            document.getElementById('x').innerHTML = message.x.toFixed(2);
+            document.getElementById('y').innerHTML = message.y.toFixed(2);
         });
 
         function moveForward() {
