@@ -328,13 +328,13 @@
         function turnLeft() {
             cmdVel.publish(new ROSLIB.Message({
                 linear: { x: 0, y: 0, z: 0 },
-                angular: { x: 0, y: 0, z: 1.5 }
+                angular: { x: 0, y: 0, z: 1.5708 }
             }));
         }
         function turnRight() {
             cmdVel.publish(new ROSLIB.Message({
                 linear: { x: 0, y: 0, z: 0 },
-                angular: { x: 0, y: 0, z: -1.5 }
+                angular: { x: 0, y: 0, z: -1.5708 }
             }));
         }
         function reset() {
