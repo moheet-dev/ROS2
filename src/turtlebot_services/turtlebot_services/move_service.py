@@ -9,6 +9,7 @@ from nav_msgs.msg import Odometry
 from turtlebot_interfaces.srv import MoveRobot
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
+import threading
 
 class MoveService(Node):
     def __init__(self):
@@ -18,6 +19,7 @@ class MoveService(Node):
         self.current_yaw = 0.0
         self.obstacle_detected = False
         self.front_distance = float('inf')
+        self.pose_lock = threading.Lock()
 
         # ReentrantCallbackGroup lets callbacks run concurrently
         cb_group = ReentrantCallbackGroup()
@@ -58,14 +60,15 @@ class MoveService(Node):
             # )
 
     def odom_callback(self, msg):
-        self.current_x = msg.pose.pose.position.x
-        self.current_y = msg.pose.pose.position.y
         qx = msg.pose.pose.orientation.x
         qy = msg.pose.pose.orientation.y
         qz = msg.pose.pose.orientation.z
         qw = msg.pose.pose.orientation.w
         _, _, yaw = euler_from_quaternion([qx, qy, qz, qw])
-        self.current_yaw = yaw
+        with self.pose_lock:
+            self.current_x = msg.pose.pose.position.x
+            self.current_y = msg.pose.pose.position.y
+            self.current_yaw = yaw
 
     def stop_robot(self):
         msg = Twist()
@@ -75,10 +78,11 @@ class MoveService(Node):
         rate = self.create_rate(20)   # 20 Hz — yields to executor each cycle
         tolerance = 0.05
         while rclpy.ok():
-            angle_error = math.atan2(
-                math.sin(target_angle - self.current_yaw),
-                math.cos(target_angle - self.current_yaw)
-            )
+            with self.pose_lock:
+                angle_error = math.atan2(
+                    math.sin(target_angle - self.current_yaw),
+                    math.cos(target_angle - self.current_yaw)
+                )
             # self.get_logger().info(
             #     f"Yaw: {self.current_yaw:.2f}  Target: {target_angle:.2f}  Error: {angle_error:.2f}"
             # )
@@ -100,8 +104,9 @@ class MoveService(Node):
                 )
                 self.stop_robot()
                 return False;
-            dx = target_x - self.current_x
-            dy = target_y - self.current_y
+            with self.pose_lock:
+                dx = target_x - self.current_x
+                dy = target_y - self.current_y
             if math.sqrt(dx**2 + dy**2) < tolerance:
                 break
             msg = Twist()
@@ -116,10 +121,11 @@ class MoveService(Node):
             f"Moving to ({req.target_x}, {req.target_y}) "
             f"from ({self.current_x:.2f}, {self.current_y:.2f})"
         )
-        target_angle = atan2(
-            req.target_y - self.current_y,
-            req.target_x - self.current_x
-        )
+        with self.pose_lock:
+            target_angle = atan2(
+                req.target_y - self.current_y,
+                req.target_x - self.current_x
+            )
         self.rotate_robot(target_angle)
         success = self.move_forward(req.target_x, req.target_y)
         if success:
